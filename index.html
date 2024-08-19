@@ -4,43 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Monitor Detection</title>
-    <style>
-        body { font-family: Arial, sans-serif; margin: 50px; text-align: center; }
-        h1 { color: #333; }
-    </style>
 </head>
 <body>
     <h1>Monitor Detection</h1>
-    <form id="uploadForm">
-        <input type="file" id="fileInput" accept="image/*">
-        <button type="submit">Upload Image</button>
-    </form>
-    <div id="result">
-        <!-- Result will be displayed here -->
-    </div>
+    <video id="video" width="720" height="560" autoplay></video>
     <script>
-        document.getElementById('uploadForm').addEventListener('submit', function(event) {
-            event.preventDefault();
-            const fileInput = document.getElementById('fileInput');
-            const file = fileInput.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const image = e.target.result;
-                    fetch('/detect', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ image: image })
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        document.getElementById('result').innerHTML = 'Number of Monitors Detected: ' + data.count;
-                    })
-                    .catch(error => console.error('Error:', error));
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+        // Access the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(function (stream) {
+                document.getElementById('video').srcObject = stream;
+            })
+            .catch(function (error) {
+                console.error("Error accessing the camera: ", error);
+            });
+
+        // Capture frames and send to backend
+        async function captureFrame() {
+            const video = document.getElementById('video');
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const context = canvas.getContext('2d');
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            const response = await fetch('/detect', {
+                method: 'POST',
+                body: JSON.stringify({ image: dataUrl }),
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const result = await response.json();
+            console.log('Monitors detected:', result.count);
+        }
+
+        setInterval(captureFrame, 5000); // Capture every 5 seconds
     </script>
 </body>
 </html>
